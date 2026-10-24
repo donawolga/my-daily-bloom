@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f8e8f0">
+<meta name="description" content="A gentle daily task, habit, and notes tracker.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>My Daily Bloom 🌷</title>
 <style>
 :root{--pink:#c77fa4;--deep:#754b65;--pale:#f9eaf2;--rose:#f4d9e7;--cream:#fffafc;--ink:#493846;--muted:#927b8b;--green:#6d9d83;--line:#efdce6}
@@ -24,7 +28,7 @@ textarea{resize:vertical;min-height:75px;margin-bottom:10px}.small{font-size:.78
 </head>
 <body><main>
 <header class="hero">
-  <div class="eyebrow">your little space ✿</div><h1>My Daily Bloom 🌷</h1><p>Small steps, lovely progress.</p>
+  <div class="eyebrow">my little space ✿</div><h1>My Daily Bloom 🌷</h1><p>Small steps, lovely progress.</p>
   <div class="datewrap"><label for="day">Today:</label><input type="date" id="day"><button class="secondary" id="todayBtn">Today</button></div>
   <div class="stats"><div class="stat"><strong id="taskStat">0/0</strong><span>Tasks done</span></div><div class="stat"><strong id="habitStat">0/0</strong><span>Habits done</span></div><div class="stat"><strong id="percentStat">0%</strong><span>Progress</span></div></div>
   <div class="progress"><div class="bar" id="progressBar"></div></div>
@@ -100,5 +104,6 @@ $('win').addEventListener('input',e=>{dayData().win=e.target.value;save()});$('n
 $('carryBtn').onclick=()=>{if(currentDate===todayISO()&&dayData().tasks.length===0){}const source=prompt('Which date should unfinished tasks come from? Enter YYYY-MM-DD',todayISO());if(!source)return;if(!/^\d{4}-\d{2}-\d{2}$/.test(source)||!data.days[source]){alert('I could not find a saved day for that date.');return}const old=data.days[source].tasks.filter(t=>!t.done);const dest=dayData();let count=0;old.forEach(t=>{if(!dest.tasks.some(x=>x.title===t.title)){dest.tasks.push({...t,id:crypto.randomUUID(),done:false});count++}});save();render();alert(`${count} unfinished task(s) carried over 🌷`)};
 $('exportBtn').onclick=async()=>{const d=dayData();const out=`MY DAILY BLOOM 🌷\nDate: ${currentDate}\n\nTASKS\n${d.tasks.map(t=>`${t.done?'[x]':'[ ]'} ${t.title} — ${t.category} — ${t.priority}`).join('\n')||'No tasks'}\n\nHABITS\n${data.habits.map(h=>`${d.habits[h.id]?'[x]':'[ ]'} ${h.title}`).join('\n')}\n\nMY LITTLE WIN\n${d.win||'Not added'}\n\nNOTES\n${d.notes||'Not added'}`;try{await navigator.clipboard.writeText(out);alert('Daily summary copied 💗')}catch(e){const ta=document.createElement('textarea');ta.value=out;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();alert('Daily summary copied 💗')}};
 render();
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.log('Offline support unavailable', err))); }
 </script>
 </body></html>
