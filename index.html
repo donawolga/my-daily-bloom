@@ -73,16 +73,36 @@ textarea{resize:vertical;min-height:75px;margin-bottom:10px}.small{font-size:.78
 const $=id=>document.getElementById(id);
 const STORE='myDailyBloom_v1';
 const todayISO=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
-let currentDate=todayISO(), filter='All', data=load();
-const defaultHabits=[
-  {id:crypto.randomUUID(),title:'Drink enough water'},
-  {id:crypto.randomUUID(),title:'Walk or move my body'},
-  {id:crypto.randomUUID(),title:'Skincare'},
-  {id:crypto.randomUUID(),title:'Learn something new'},
-  {id:crypto.randomUUID(),title:'Read or relax'}
+const $ = id => document.getElementById(id);
+const STORE = 'myDailyBloom_v1';
+
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+
+const defaultHabits = [
+  {id: crypto.randomUUID(), title: 'Drink enough water'},
+  {id: crypto.randomUUID(), title: 'Walk or move my body'},
+  {id: crypto.randomUUID(), title: 'Skincare'},
+  {id: crypto.randomUUID(), title: 'Learn something new'},
+  {id: crypto.randomUUID(), title: 'Read or relax'}
 ];
-let currentDate=todayISO(), filter='All', data=load();
-function load(){try{return JSON.parse(localStorage.getItem(STORE))||{days:{},habits:defaultHabits}}catch(e){return {days:{},habits:defaultHabits}}}
+
+function load() {
+  try {
+    return JSON.parse(localStorage.getItem(STORE)) || {
+      days: {},
+      habits: defaultHabits
+    };
+  } catch (e) {
+    return {days: {}, habits: defaultHabits};
+  }
+}
+
+let currentDate = todayISO();
+let filter = 'All';
+let data = load();
 function save(){try{localStorage.setItem(STORE,JSON.stringify(data))}catch(e){alert('Your browser could not save data. Please copy your daily summary as a backup.')} }
 function dayData(date=currentDate){if(!data.days[date])data.days[date]={tasks:[],habits:{},win:'',notes:''};return data.days[date]}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
