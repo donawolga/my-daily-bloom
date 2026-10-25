@@ -23,6 +23,7 @@ main{max-width:680px;margin:auto}.hero{background:var(--pale);border:1px solid #
 .task{display:flex;align-items:flex-start;gap:10px;padding:12px 10px;border-radius:14px;background:#fff7fb;margin:8px 0;border:1px solid #f6e7ef}.task input{accent-color:var(--pink);width:19px;height:19px;margin-top:2px;flex-shrink:0}.taskbody{flex:1;min-width:0}.tasktitle{overflow-wrap:anywhere}.task.done .tasktitle{text-decoration:line-through;color:#aa9ba6}.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:.72rem;color:var(--muted)}.pill{border-radius:20px;padding:3px 7px;background:#f2e7ed}.high{background:#ffe1e7;color:#a74461}.medium{background:#fff0cb;color:#896a20}.low{background:#e1f2e7;color:#3c7959}.delete{background:transparent;color:#b38a9e;padding:3px 5px;font-size:1.1rem}
 .habit{display:flex;align-items:center;gap:10px;padding:11px 3px;border-bottom:1px solid #f5e9ef}.habit:last-child{border-bottom:0}.habit input{accent-color:var(--pink);width:19px;height:19px}.habit label{flex:1}.habit .checked{text-decoration:line-through;color:#a99aa5}.habit button{font-size:.9rem}
 textarea{resize:vertical;min-height:75px;margin-bottom:10px}.small{font-size:.78rem;color:var(--muted);line-height:1.5}.empty{text-align:center;color:var(--muted);padding:18px 4px}.footer{text-align:center;color:var(--muted);font-size:.76rem;margin:20px 8px}
+.repeat{background:#e9f3ee;color:#3c7959}.routine{display:flex;align-items:center;gap:10px;padding:10px 3px;border-bottom:1px solid #f5e9ef}.routine:last-child{border-bottom:0}.routine .rt{flex:1;min-width:0;overflow-wrap:anywhere}.routine .rs{font-size:.74rem;color:var(--muted)}
 @media(min-width:520px){body{padding:26px 18px 45px}.card{padding:21px}.hero{padding:27px}}
 </style>
 </head>
@@ -42,11 +43,17 @@ textarea{resize:vertical;min-height:75px;margin-bottom:10px}.small{font-size:.78
     <div class="addgrid">
       <select id="taskCategory" aria-label="Category"><option>Personal</option><option>Home</option><option>Career</option><option>Freelance</option><option>Family</option><option>Health</option><option>Other</option></select>
       <select id="taskPriority" aria-label="Priority"><option value="High">🔴 High priority</option><option value="Medium" selected>🟡 Medium priority</option><option value="Low">🟢 Low priority</option></select>
+      <select id="taskRepeat" class="wide" aria-label="Repeat"><option value="once" selected>Just this day</option><option value="daily">🔁 Every day</option><option value="alternate">🔁 Every 2 days (one day on, one off)</option><option value="weekdays">🔁 Weekdays (Mon–Fri)</option><option value="weekends">🔁 Weekends (Sat &amp; Sun)</option></select>
       <button class="primary wide" type="submit">＋ Add task</button>
     </div>
   </form>
   <div class="filters" id="filters"><button class="active" data-filter="All">All</button><button data-filter="Pending">Pending</button><button data-filter="Completed">Completed</button></div>
   <div id="taskList"></div>
+</section>
+
+<section class="card">
+  <h2>🔁 My routines</h2><p class="hint">Repeating tasks show up automatically on the right days.</p>
+  <div id="routineList"></div>
 </section>
 
 <section class="card">
@@ -70,6 +77,7 @@ textarea{resize:vertical;min-height:75px;margin-bottom:10px}.small{font-size:.78
 <div class="footer">Made with love for your everyday little wins 🌷<br>Tip: add this page to your home screen after hosting it online.</div>
 </main>
 <script>
+(() => {
 const $ = id => document.getElementById(id);
 const STORE = 'myDailyBloom_v1';
 
@@ -77,23 +85,24 @@ const todayISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 };
-
 const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
 
 const defaultHabits = () => [
-  {id: 'h-water',  title: 'Drink enough water'},
-  {id: 'h-move',   title: 'Walk or move my body'},
-  {id: 'h-skin',   title: 'Skincare'},
-  {id: 'h-learn',  title: 'Learn something new'},
-  {id: 'h-relax',  title: 'Read or relax'}
+  {id: 'h-water', title: 'Drink enough water'},
+  {id: 'h-move',  title: 'Walk or move my body'},
+  {id: 'h-skin',  title: 'Skincare'},
+  {id: 'h-learn', title: 'Learn something new'},
+  {id: 'h-relax', title: 'Read or relax'}
 ];
 
+const REPEAT_LABEL = {daily: 'Every day', alternate: 'Every 2 days', weekdays: 'Weekdays', weekends: 'Weekends'};
+
 function load() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORE));
-    if (saved && saved.days && saved.habits) return saved;
-  } catch (e) {}
-  return {days: {}, habits: defaultHabits()};
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(STORE)); } catch (e) {}
+  if (!d || !d.days || !d.habits) d = {days: {}, habits: defaultHabits()};
+  if (!Array.isArray(d.recurring)) d.recurring = [];
+  return d;
 }
 
 let currentDate = todayISO();
@@ -103,6 +112,39 @@ let data = load();
 function save(){
   try { localStorage.setItem(STORE, JSON.stringify(data)); }
   catch(e){ alert('Your browser could not save data. Please copy your daily summary as a backup.'); }
+}
+
+function parseISO(iso){ const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); }
+function dayDiff(a, b){ // days from a to b
+  const A = parseISO(a), B = parseISO(b);
+  return Math.round((Date.UTC(B.getFullYear(),B.getMonth(),B.getDate()) - Date.UTC(A.getFullYear(),A.getMonth(),A.getDate())) / 86400000);
+}
+
+function appliesOn(r, date){
+  const diff = dayDiff(r.start, date);
+  if (diff < 0) return false;
+  const dow = parseISO(date).getDay(); // 0 Sun ... 6 Sat
+  if (r.repeat === 'daily') return true;
+  if (r.repeat === 'alternate') return diff % 2 === 0;
+  if (r.repeat === 'weekdays') return dow >= 1 && dow <= 5;
+  if (r.repeat === 'weekends') return dow === 0 || dow === 6;
+  return false;
+}
+
+// Adds repeating tasks to a day once. If you delete one, it won't come back.
+function seedRecurring(date){
+  const d = data.days[date] || (data.days[date] = {tasks: [], habits: {}, win: '', notes: ''});
+  if (!d.seeded) d.seeded = {};
+  let changed = false;
+  data.recurring.forEach(r => {
+    if (d.seeded[r.id]) return;
+    if (appliesOn(r, date)) {
+      d.tasks.push({id: uid(), title: r.title, category: r.category, priority: r.priority, done: false, recId: r.id, repeat: r.repeat});
+    }
+    d.seeded[r.id] = true;
+    changed = true;
+  });
+  if (changed) save();
 }
 
 function dayData(date = currentDate){
@@ -115,6 +157,7 @@ function esc(s){
 }
 
 function render(){
+  seedRecurring(currentDate);
   const d = dayData();
   $('day').value = currentDate;
   $('win').value = d.win || '';
@@ -138,8 +181,12 @@ function render(){
 
   const visible = tasks.filter(t => filter === 'All' || (filter === 'Pending' ? !t.done : t.done));
   $('taskList').innerHTML = visible.length
-    ? visible.map(t => `<div class="task ${t.done ? 'done' : ''}"><input type="checkbox" aria-label="Complete ${esc(t.title)}" data-check="${t.id}" ${t.done ? 'checked' : ''}><div class="taskbody"><div class="tasktitle">${esc(t.title)}</div><div class="meta"><span class="pill">${esc(t.category)}</span><span class="pill ${t.priority.toLowerCase()}">${t.priority === 'High' ? '🔴' : t.priority === 'Medium' ? '🟡' : '🟢'} ${t.priority}</span></div></div><button class="delete" title="Delete task" aria-label="Delete task" data-delete="${t.id}">×</button></div>`).join('')
+    ? visible.map(t => `<div class="task ${t.done ? 'done' : ''}"><input type="checkbox" aria-label="Complete ${esc(t.title)}" data-check="${t.id}" ${t.done ? 'checked' : ''}><div class="taskbody"><div class="tasktitle">${esc(t.title)}</div><div class="meta"><span class="pill">${esc(t.category)}</span><span class="pill ${t.priority.toLowerCase()}">${t.priority === 'High' ? '🔴' : t.priority === 'Medium' ? '🟡' : '🟢'} ${t.priority}</span>${t.recId ? `<span class="pill repeat">🔁 ${esc(REPEAT_LABEL[t.repeat] || 'Repeats')}</span>` : ''}</div></div><button class="delete" title="Delete task" aria-label="Delete task" data-delete="${t.id}">×</button></div>`).join('')
     : '<div class="empty">Nothing here just yet 🌸</div>';
+
+  $('routineList').innerHTML = data.recurring.length
+    ? data.recurring.map(r => `<div class="routine"><div class="rt">${esc(r.title)}<div class="rs">🔁 ${esc(REPEAT_LABEL[r.repeat])} · ${esc(r.category)} · from ${esc(r.start)}</div></div><button class="ghost" data-rdelete="${r.id}" aria-label="Stop repeating">×</button></div>`).join('')
+    : '<div class="empty">No routines yet. Pick a repeat option when adding a task 🌿</div>';
 
   $('habitList').innerHTML = habits.map(h => `<div class="habit"><input type="checkbox" id="habit-${h.id}" data-habit="${h.id}" ${d.habits[h.id] ? 'checked' : ''}><label class="${d.habits[h.id] ? 'checked' : ''}" for="habit-${h.id}">${esc(h.title)}</label>${h.custom ? `<button class="ghost" data-hdelete="${h.id}" aria-label="Delete habit">×</button>` : ''}</div>`).join('');
 }
@@ -151,8 +198,20 @@ $('taskForm').addEventListener('submit', e => {
   e.preventDefault();
   const title = $('taskTitle').value.trim();
   if (!title) return;
-  dayData().tasks.push({id: uid(), title, category: $('taskCategory').value, priority: $('taskPriority').value, done: false});
+  const category = $('taskCategory').value, priority = $('taskPriority').value, repeat = $('taskRepeat').value;
+  seedRecurring(currentDate);
+  if (repeat === 'once') {
+    dayData().tasks.push({id: uid(), title, category, priority, done: false});
+  } else {
+    const r = {id: uid(), title, category, priority, repeat, start: currentDate};
+    data.recurring.push(r);
+    const d = dayData();
+    d.seeded[r.id] = true;
+    // Add it to the selected day right away, even if today isn't one of its repeat days
+    d.tasks.push({id: uid(), title, category, priority, done: false, recId: r.id, repeat});
+  }
   $('taskTitle').value = '';
+  $('taskRepeat').value = 'once';
   save(); render();
 });
 
@@ -166,8 +225,20 @@ $('taskList').addEventListener('change', e => {
 
 $('taskList').addEventListener('click', e => {
   const id = e.target.dataset.delete;
-  if (id && confirm('Delete this task?')) {
+  if (id && confirm('Delete this task for this day?')) {
     dayData().tasks = dayData().tasks.filter(t => t.id !== id);
+    save(); render();
+  }
+});
+
+$('routineList').addEventListener('click', e => {
+  const id = e.target.dataset.rdelete;
+  if (id && confirm('Stop this routine? Unfinished copies from today onward will be removed. Past days stay as they are.')) {
+    data.recurring = data.recurring.filter(r => r.id !== id);
+    const today = todayISO();
+    for (const [date, d] of Object.entries(data.days)) {
+      if (date >= today) d.tasks = d.tasks.filter(t => !(t.recId === id && !t.done));
+    }
     save(); render();
   }
 });
@@ -245,5 +316,6 @@ render();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.log('Offline support unavailable', err)));
 }
+})();
 </script>
 </body></html>
