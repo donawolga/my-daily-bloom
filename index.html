@@ -70,9 +70,6 @@ textarea{resize:vertical;min-height:75px;margin-bottom:10px}.small{font-size:.78
 <div class="footer">Made with love for your everyday little wins 🌷<br>Tip: add this page to your home screen after hosting it online.</div>
 </main>
 <script>
-const $=id=>document.getElementById(id);
-const STORE='myDailyBloom_v1';
-const todayISO=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const $ = id => document.getElementById(id);
 const STORE = 'myDailyBloom_v1';
 
@@ -81,56 +78,172 @@ const todayISO = () => {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 };
 
-const defaultHabits = [
-  {id: crypto.randomUUID(), title: 'Drink enough water'},
-  {id: crypto.randomUUID(), title: 'Walk or move my body'},
-  {id: crypto.randomUUID(), title: 'Skincare'},
-  {id: crypto.randomUUID(), title: 'Learn something new'},
-  {id: crypto.randomUUID(), title: 'Read or relax'}
+const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+
+const defaultHabits = () => [
+  {id: 'h-water',  title: 'Drink enough water'},
+  {id: 'h-move',   title: 'Walk or move my body'},
+  {id: 'h-skin',   title: 'Skincare'},
+  {id: 'h-learn',  title: 'Learn something new'},
+  {id: 'h-relax',  title: 'Read or relax'}
 ];
 
 function load() {
   try {
-    return JSON.parse(localStorage.getItem(STORE)) || {
-      days: {},
-      habits: defaultHabits
-    };
-  } catch (e) {
-    return {days: {}, habits: defaultHabits};
-  }
+    const saved = JSON.parse(localStorage.getItem(STORE));
+    if (saved && saved.days && saved.habits) return saved;
+  } catch (e) {}
+  return {days: {}, habits: defaultHabits()};
 }
 
 let currentDate = todayISO();
 let filter = 'All';
 let data = load();
-function save(){try{localStorage.setItem(STORE,JSON.stringify(data))}catch(e){alert('Your browser could not save data. Please copy your daily summary as a backup.')} }
-function dayData(date=currentDate){if(!data.days[date])data.days[date]={tasks:[],habits:{},win:'',notes:''};return data.days[date]}
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function render(){
- const d=dayData(); $('day').value=currentDate;
- $('win').value=d.win||'';$('notes').value=d.notes||'';
- const tasks=d.tasks, done=tasks.filter(t=>t.done).length, pct=tasks.length?Math.round(done/tasks.length*100):0;
- const habits=data.habits, hd=habits.filter(h=>d.habits[h.id]).length;
- $('taskStat').textContent=`${done}/${tasks.length}`;$('habitStat').textContent=`${hd}/${habits.length}`;$('percentStat').textContent=pct+'%';$('progressBar').style.width=pct+'%';
- $('progressText').textContent=tasks.length&&done===tasks.length?'You did it! Be proud of yourself 🎉':`${pct}% complete — every little step counts 💗`;
- document.querySelectorAll('#filters button').forEach(b=>b.classList.toggle('active',b.dataset.filter===filter));
- const visible=tasks.filter(t=>filter==='All'||(filter==='Pending'?!t.done:t.done));
- $('taskList').innerHTML=visible.length?visible.map(t=>`<div class="task ${t.done?'done':''}"><input type="checkbox" aria-label="Complete ${esc(t.title)}" data-check="${t.id}" ${t.done?'checked':''}><div class="taskbody"><div class="tasktitle">${esc(t.title)}</div><div class="meta"><span class="pill">${esc(t.category)}</span><span class="pill ${t.priority.toLowerCase()}">${t.priority==='High'?'🔴':t.priority==='Medium'?'🟡':'🟢'} ${t.priority}</span></div></div><button class="delete" title="Delete task" aria-label="Delete task" data-delete="${t.id}">×</button></div>`).join(''):'<div class="empty">Nothing here just yet 🌸</div>';
- $('habitList').innerHTML=habits.map(h=>`<div class="habit"><input type="checkbox" id="habit-${h.id}" data-habit="${h.id}" ${d.habits[h.id]?'checked':''}><label class="${d.habits[h.id]?'checked':''}" for="habit-${h.id}">${esc(h.title)}</label>${h.custom?`<button class="ghost" data-hdelete="${h.id}" aria-label="Delete habit">×</button>`:''}</div>`).join('');
+
+function save(){
+  try { localStorage.setItem(STORE, JSON.stringify(data)); }
+  catch(e){ alert('Your browser could not save data. Please copy your daily summary as a backup.'); }
 }
-$('day').addEventListener('change',e=>{currentDate=e.target.value||todayISO();render()});
-$('todayBtn').onclick=()=>{currentDate=todayISO();render()};
-$('taskForm').addEventListener('submit',e=>{e.preventDefault();const title=$('taskTitle').value.trim();if(!title)return;dayData().tasks.push({id:crypto.randomUUID(),title,category:$('taskCategory').value,priority:$('taskPriority').value,done:false});$('taskTitle').value='';save();render()});
-$('taskList').addEventListener('change',e=>{if(e.target.dataset.check){const t=dayData().tasks.find(t=>t.id===e.target.dataset.check);if(t)t.done=e.target.checked;save();render()}});
-$('taskList').addEventListener('click',e=>{const id=e.target.dataset.delete;if(id&&confirm('Delete this task?')){dayData().tasks=dayData().tasks.filter(t=>t.id!==id);save();render()}});
-$('filters').addEventListener('click',e=>{if(e.target.dataset.filter){filter=e.target.dataset.filter;render()}});
-$('habitForm').addEventListener('submit',e=>{e.preventDefault();const title=$('habitTitle').value.trim();if(!title)return;data.habits.push({id:crypto.randomUUID(),title,custom:true});$('habitTitle').value='';save();render()});
-$('habitList').addEventListener('change',e=>{if(e.target.dataset.habit){dayData().habits[e.target.dataset.habit]=e.target.checked;save();render()}});
-$('habitList').addEventListener('click',e=>{const id=e.target.dataset.hdelete;if(id&&confirm('Delete this habit from your tracker?')){data.habits=data.habits.filter(h=>h.id!==id);for(const d of Object.values(data.days))delete d.habits[id];save();render()}});
-$('win').addEventListener('input',e=>{dayData().win=e.target.value;save()});$('notes').addEventListener('input',e=>{dayData().notes=e.target.value;save()});
-$('carryBtn').onclick=()=>{if(currentDate===todayISO()&&dayData().tasks.length===0){}const source=prompt('Which date should unfinished tasks come from? Enter YYYY-MM-DD',todayISO());if(!source)return;if(!/^\d{4}-\d{2}-\d{2}$/.test(source)||!data.days[source]){alert('I could not find a saved day for that date.');return}const old=data.days[source].tasks.filter(t=>!t.done);const dest=dayData();let count=0;old.forEach(t=>{if(!dest.tasks.some(x=>x.title===t.title)){dest.tasks.push({...t,id:crypto.randomUUID(),done:false});count++}});save();render();alert(`${count} unfinished task(s) carried over 🌷`)};
-$('exportBtn').onclick=async()=>{const d=dayData();const out=`MY DAILY BLOOM 🌷\nDate: ${currentDate}\n\nTASKS\n${d.tasks.map(t=>`${t.done?'[x]':'[ ]'} ${t.title} — ${t.category} — ${t.priority}`).join('\n')||'No tasks'}\n\nHABITS\n${data.habits.map(h=>`${d.habits[h.id]?'[x]':'[ ]'} ${h.title}`).join('\n')}\n\nMY LITTLE WIN\n${d.win||'Not added'}\n\nNOTES\n${d.notes||'Not added'}`;try{await navigator.clipboard.writeText(out);alert('Daily summary copied 💗')}catch(e){const ta=document.createElement('textarea');ta.value=out;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();alert('Daily summary copied 💗')}};
+
+function dayData(date = currentDate){
+  if (!data.days[date]) data.days[date] = {tasks: [], habits: {}, win: '', notes: ''};
+  return data.days[date];
+}
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function render(){
+  const d = dayData();
+  $('day').value = currentDate;
+  $('win').value = d.win || '';
+  $('notes').value = d.notes || '';
+
+  const tasks = d.tasks;
+  const done = tasks.filter(t => t.done).length;
+  const pct = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+  const habits = data.habits;
+  const hd = habits.filter(h => d.habits[h.id]).length;
+
+  $('taskStat').textContent = `${done}/${tasks.length}`;
+  $('habitStat').textContent = `${hd}/${habits.length}`;
+  $('percentStat').textContent = pct + '%';
+  $('progressBar').style.width = pct + '%';
+  $('progressText').textContent = tasks.length && done === tasks.length
+    ? 'You did it! Be proud of yourself 🎉'
+    : `${pct}% complete — every little step counts 💗`;
+
+  document.querySelectorAll('#filters button').forEach(b => b.classList.toggle('active', b.dataset.filter === filter));
+
+  const visible = tasks.filter(t => filter === 'All' || (filter === 'Pending' ? !t.done : t.done));
+  $('taskList').innerHTML = visible.length
+    ? visible.map(t => `<div class="task ${t.done ? 'done' : ''}"><input type="checkbox" aria-label="Complete ${esc(t.title)}" data-check="${t.id}" ${t.done ? 'checked' : ''}><div class="taskbody"><div class="tasktitle">${esc(t.title)}</div><div class="meta"><span class="pill">${esc(t.category)}</span><span class="pill ${t.priority.toLowerCase()}">${t.priority === 'High' ? '🔴' : t.priority === 'Medium' ? '🟡' : '🟢'} ${t.priority}</span></div></div><button class="delete" title="Delete task" aria-label="Delete task" data-delete="${t.id}">×</button></div>`).join('')
+    : '<div class="empty">Nothing here just yet 🌸</div>';
+
+  $('habitList').innerHTML = habits.map(h => `<div class="habit"><input type="checkbox" id="habit-${h.id}" data-habit="${h.id}" ${d.habits[h.id] ? 'checked' : ''}><label class="${d.habits[h.id] ? 'checked' : ''}" for="habit-${h.id}">${esc(h.title)}</label>${h.custom ? `<button class="ghost" data-hdelete="${h.id}" aria-label="Delete habit">×</button>` : ''}</div>`).join('');
+}
+
+$('day').addEventListener('change', e => { currentDate = e.target.value || todayISO(); render(); });
+$('todayBtn').onclick = () => { currentDate = todayISO(); render(); };
+
+$('taskForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const title = $('taskTitle').value.trim();
+  if (!title) return;
+  dayData().tasks.push({id: uid(), title, category: $('taskCategory').value, priority: $('taskPriority').value, done: false});
+  $('taskTitle').value = '';
+  save(); render();
+});
+
+$('taskList').addEventListener('change', e => {
+  if (e.target.dataset.check) {
+    const t = dayData().tasks.find(t => t.id === e.target.dataset.check);
+    if (t) t.done = e.target.checked;
+    save(); render();
+  }
+});
+
+$('taskList').addEventListener('click', e => {
+  const id = e.target.dataset.delete;
+  if (id && confirm('Delete this task?')) {
+    dayData().tasks = dayData().tasks.filter(t => t.id !== id);
+    save(); render();
+  }
+});
+
+$('filters').addEventListener('click', e => {
+  if (e.target.dataset.filter) { filter = e.target.dataset.filter; render(); }
+});
+
+$('habitForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const title = $('habitTitle').value.trim();
+  if (!title) return;
+  data.habits.push({id: uid(), title, custom: true});
+  $('habitTitle').value = '';
+  save(); render();
+});
+
+$('habitList').addEventListener('change', e => {
+  if (e.target.dataset.habit) {
+    dayData().habits[e.target.dataset.habit] = e.target.checked;
+    save(); render();
+  }
+});
+
+$('habitList').addEventListener('click', e => {
+  const id = e.target.dataset.hdelete;
+  if (id && confirm('Delete this habit from your tracker?')) {
+    data.habits = data.habits.filter(h => h.id !== id);
+    for (const d of Object.values(data.days)) delete d.habits[id];
+    save(); render();
+  }
+});
+
+$('win').addEventListener('input', e => { dayData().win = e.target.value; save(); });
+$('notes').addEventListener('input', e => { dayData().notes = e.target.value; save(); });
+
+$('carryBtn').onclick = () => {
+  const source = prompt('Which date should unfinished tasks come from? Enter YYYY-MM-DD', todayISO());
+  if (!source) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(source) || !data.days[source]) {
+    alert('I could not find a saved day for that date.');
+    return;
+  }
+  const old = data.days[source].tasks.filter(t => !t.done);
+  const dest = dayData();
+  let count = 0;
+  old.forEach(t => {
+    if (!dest.tasks.some(x => x.title === t.title)) {
+      dest.tasks.push({...t, id: uid(), done: false});
+      count++;
+    }
+  });
+  save(); render();
+  alert(`${count} unfinished task(s) carried over 🌷`);
+};
+
+$('exportBtn').onclick = async () => {
+  const d = dayData();
+  const out = `MY DAILY BLOOM 🌷\nDate: ${currentDate}\n\nTASKS\n${d.tasks.map(t => `${t.done ? '[x]' : '[ ]'} ${t.title} — ${t.category} — ${t.priority}`).join('\n') || 'No tasks'}\n\nHABITS\n${data.habits.map(h => `${d.habits[h.id] ? '[x]' : '[ ]'} ${h.title}`).join('\n')}\n\nMY LITTLE WIN\n${d.win || 'Not added'}\n\nNOTES\n${d.notes || 'Not added'}`;
+  try {
+    await navigator.clipboard.writeText(out);
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = out;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+  alert('Daily summary copied 💗');
+};
+
 render();
-if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.log('Offline support unavailable', err))); }
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.log('Offline support unavailable', err)));
+}
 </script>
 </body></html>
